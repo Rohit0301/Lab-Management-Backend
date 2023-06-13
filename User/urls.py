@@ -1,7 +1,8 @@
 from django.urls import path
 from . import views
-from django.conf import settings
- 
+
+
 urlpatterns = [
-    path('details/:id', views.getUser),
+    path('login/', views.UserLoginAPIView.as_view(), name="User Login"),
+    path('register/', views.UserRegistrationAPIView.as_view(), name="User Register")
 ]
