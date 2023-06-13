@@ -39,7 +39,7 @@ class LabRegistrationAPIView(generics.CreateAPIView):
         return
 
 
-class TestAPIView(generics.RetrieveUpdateDestroyAPIView, generics.CreateAPIView):
+class TestAPIView(generics.DestroyAPIView, generics.CreateAPIView, generics.UpdateAPIView):
     serializer_class = LabTestSerializer
     queryset = TestDetail.objects.all()
 
@@ -100,6 +100,18 @@ class PatientAssignTestAPIView(APIView):
             return Response("Something went wrong", status=status.HTTP_400_BAD_REQUEST)
 
 
+class TestFetchAPIView(APIView):
+    serializer_class = LabTestSerializer
+    permission_classes = (AllowAny,)
+
+    def get(self, request, lab_id):
+        tests = list(TestDetail.objects.filter(lab=lab_id))
+        serialized_data = json.loads(serializers.serialize("json", tests))
+        data = [{**item['fields'], 'id':item['pk']}
+                for item in serialized_data]
+        return Response(data, status=status.HTTP_200_OK)
+
+
 class PatientFetchAPIView(APIView):
     permission_classes = (AllowAny,)
     serializer_class = LabPatientSerializer
@@ -131,18 +143,6 @@ class PatientFetchAPIView(APIView):
 #             return Response({"data": "Test deleted successfully"}, status=status.HTTP_200_OK)
 #         else:
 #             return Response("Something went wrong", status=status.HTTP_400_BAD_REQUEST)
-
-
-# class TestFetchAPIView(APIView):
-#     serializer_class = LabTestSerializer
-#     pagination_class = LimitOffsetPagination
-
-#     def get(self, request, lab_id):
-#         tests = list(TestDetail.objects.filter(lab=lab_id))
-#         serialized_data = json.loads(serializers.serialize("json", tests))
-#         data = [{**item['fields'], 'id':item['pk']}
-#                 for item in serialized_data]
-#         return Response(data, status=status.HTTP_200_OK)
 
 
 # class TestCreateAPIView(APIView):
