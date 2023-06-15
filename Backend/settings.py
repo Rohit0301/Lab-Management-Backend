@@ -33,6 +33,7 @@ ALLOWED_HOSTS = []
 INSTALLED_APPS = [
     'Lab',
     'User',
+    'Session',
     'corsheaders',
     'rest_framework',
     'django.contrib.admin',

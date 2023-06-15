@@ -1,3 +1,5 @@
+from Session import utils as SessionUtils
+from Lab import utils as LabUtils
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
@@ -7,6 +9,9 @@ from .serializers import LabRegistrationSerializer, LabLoginSerializer, LabTestS
 from rest_framework import generics, exceptions, status
 from django.core import serializers
 import json
+import sys
+sys.path.append("..Session")
+sys.path.append("..Lab")
 
 
 class LabLoginAPIView(APIView):
@@ -26,9 +31,9 @@ class LabLoginAPIView(APIView):
             raise exceptions.AuthenticationFailed(
                 'Invalid username or password')
         serialized_user = LabLoginSerializer(lab).data
-
+        session_id = SessionUtils.CreateOrGetSession(lab.id, "laboratory")
         return Response(
-            serialized_user, status=status.HTTP_200_OK)
+            {**serialized_user, 'session_id': session_id}, status=status.HTTP_200_OK)
 
 
 class LabRegistrationAPIView(generics.CreateAPIView):
@@ -37,6 +42,11 @@ class LabRegistrationAPIView(generics.CreateAPIView):
 
     def get_queryset(self):
         return
+
+
+class FetchLabAPIView(generics.RetrieveAPIView):
+    serializer_class = LabLoginSerializer
+    queryset = LabDetail.objects.all()
 
 
 class TestAPIView(generics.DestroyAPIView, generics.CreateAPIView, generics.UpdateAPIView):
@@ -124,6 +134,37 @@ class PatientFetchAPIView(APIView):
                 for item in serialized_data]
         return Response(data, status=status.HTTP_200_OK)
 
+
+class PatientReports(APIView):
+
+    def get(self, request):
+        auth_headers = request.headers.get('Authorization')
+        if (not auth_headers):
+            raise Exception("Invalid session!")
+        session_id = auth_headers.split(' ')[1]
+        session = SessionUtils.FetchUserSession(session_id)
+        lab_id = session.user_id
+        patients = PatientDetail.objects.filter(lab=lab_id)
+        data = []
+        for patient in patients:
+            bills = LabUtils.PatientBillDetails(patient.id)
+            bill_ids = []
+            report_data = []
+            for bill in bills:
+                bill_ids.append(bill['bill'])
+                report_data = LabUtils.PatientRepostDetails(bill['bill'])
+            if len(report_data) == 0:
+                continue
+            temp_data = {
+                'id': patient.id,
+                'patient_name': patient.first_name+' '+patient.last_name,
+                'patient_email': patient.email_id,
+                'reports': report_data,
+                'bill_ids': bill_ids
+            }
+            data.append(temp_data)
+
+        return Response(data)
 # class TestUpdateAPIView(APIView):
 #     serializer_class = LabTestSerializer
 

@@ -1,20 +1,59 @@
 import hashlib
-from django.utils.encoding import smart_str
+from .models import PatientDetail, PatientTestDetail
 
 
-def get_hexdigest(algorithm, salt, raw_password):
+def FetchAllPatients(patient_email_id):
+    patients = PatientDetail.objects.filter(email_id=patient_email_id)
+    return patients
 
-    raw_password, salt = raw_password.encode(), salt.encode()
-    if algorithm == 'crypt':
-        try:
-            import crypt
-        except ImportError:
-            raise ValueError(
-                '"crypt" password algorithm not supported in this environment')
-        return crypt.crypt(raw_password, salt)
 
-    if algorithm == 'md5':
-        return hashlib.md5(salt + raw_password).hexdigest()
-    elif algorithm == 'sha1':
-        return hashlib.sha1(salt + raw_password).hexdigest()
-    raise ValueError("Got unknown password algorithm type in password.")
+def PatientBillDetails(patient_id):
+    patient_bills = PatientTestDetail.objects.filter(
+        patient=patient_id).values('bill').distinct()
+    return patient_bills
+
+
+def PatientRepostDetails(bill_id):
+    patients_tests = PatientTestDetail.objects.select_related().filter(bill=bill_id)
+    reports = []
+
+    for testDetail in patients_tests:
+        temp_data = {
+            'bill_no': testDetail.bill.id,
+            'bill_created_at': testDetail.bill.created_at,
+            'test_price': testDetail.test.price,
+            'test_name': testDetail.test.name,
+            'test_sample_needed': testDetail.test.sample_needed
+        }
+        reports.append(temp_data)
+    # data = {
+    #     'bill_no': testDetail.bill.id,
+    #     'bill_amount': testDetail.bill.total_amount,
+    #     'bill_created_at': testDetail.bill.created_at,
+    #     'lab_name': testDetail.lab.name,
+    #     'tests': tests
+    # }
+    return reports
+
+
+def PatientTestDetailsByBillId(bill_id):
+    patients_tests = PatientTestDetail.objects.select_related().filter(bill=bill_id)
+    tests = []
+
+    for testDetail in patients_tests:
+        temp_data = {
+            'patient_name': testDetail.patient.first_name + ' ' + testDetail.patient.last_name,
+            'patient_age': testDetail.patient.age,
+            'test_price': testDetail.test.price,
+            'test_name': testDetail.test.name,
+            'test_sample_needed': testDetail.test.sample_needed
+        }
+        tests.append(temp_data)
+    data = {
+        'bill_no': testDetail.bill.id,
+        'bill_amount': testDetail.bill.total_amount,
+        'bill_created_at': testDetail.bill.created_at,
+        'lab_name': testDetail.lab.name,
+        'tests': tests
+    }
+    return data

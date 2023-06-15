@@ -4,12 +4,24 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework.validators import UniqueValidator
 
 
-class UserLoginSerializer(serializers.ModelSerializer):
-    id = serializers.ReadOnlyField()
+class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = UserDetail
-        exclude = ('full_name',)
+        fields = ('full_name', 'email_id')
+
+
+class UserLoginSerializer(serializers.ModelSerializer):
+    id = serializers.ReadOnlyField()
+    email_id = serializers.EmailField(
+        required=True
+    )
+    password = serializers.CharField(
+        write_only=True, required=True)
+
+    class Meta:
+        model = UserDetail
+        fields = '__all__'
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
