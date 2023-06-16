@@ -1,5 +1,10 @@
-import hashlib
-from .models import PatientDetail, PatientTestDetail
+from .models import PatientDetail, PatientTestDetail, BillDetail
+
+
+def CreateNewBill(total_amount):
+    bill = BillDetail.objects.create(total_amount=total_amount)
+    bill.save()
+    return bill
 
 
 def FetchAllPatients(patient_email_id):
@@ -14,7 +19,8 @@ def PatientBillDetails(patient_id):
 
 
 def PatientRepostDetails(bill_id):
-    patients_tests = PatientTestDetail.objects.select_related().filter(bill=bill_id)
+    patients_tests = PatientTestDetail.objects.select_related().filter(
+        bill=bill_id)
     reports = []
 
     for testDetail in patients_tests:
@@ -26,13 +32,6 @@ def PatientRepostDetails(bill_id):
             'test_sample_needed': testDetail.test.sample_needed
         }
         reports.append(temp_data)
-    # data = {
-    #     'bill_no': testDetail.bill.id,
-    #     'bill_amount': testDetail.bill.total_amount,
-    #     'bill_created_at': testDetail.bill.created_at,
-    #     'lab_name': testDetail.lab.name,
-    #     'tests': tests
-    # }
     return reports
 
 

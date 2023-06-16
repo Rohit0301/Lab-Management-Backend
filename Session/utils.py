@@ -1,5 +1,6 @@
 from .models import Session
 import uuid
+from functools import wraps
 
 
 def CreateOrGetSession(user_id, role):
@@ -17,8 +18,12 @@ def CreateOrGetSession(user_id, role):
         raise Exception("Something went wrong!")
 
 
-def FetchUserSession(session_id):
+def FetchUserSession(request):
     try:
+        auth_headers = request.headers.get('Authorization')
+        if (not auth_headers):
+            raise Exception("Invalid session!")
+        session_id = auth_headers.split(' ')[1]
         session = Session.objects.get(
             session_id=session_id, is_deleted=False)
         return session

@@ -53,24 +53,41 @@ class TestAPIView(generics.DestroyAPIView, generics.CreateAPIView, generics.Upda
     serializer_class = LabTestSerializer
     queryset = TestDetail.objects.all()
 
+    def destroy(self, request, pk):
+        try:
+            session = SessionUtils.FetchUserSession(request)
+            old_test = TestDetail.objects.get(id=pk,
+                                              lab=session.user_id)
+            old_test.is_deleted = True
+            old_test.save()
+            return Response({'id': old_test.id}, status=status.HTTP_200_OK)
+        except:
+            raise Exception("Test not found")
+
 
 class PatientAPIView(generics.DestroyAPIView, generics.CreateAPIView, generics.UpdateAPIView):
     serializer_class = LabPatientSerializer
     queryset = PatientDetail.objects.all()
 
-
-def CreateNewBill(total_amount):
-    bill = BillDetail.objects.create(total_amount=total_amount)
-    bill.save()
-    return bill
+    def destroy(self, request, pk):
+        try:
+            session = SessionUtils.FetchUserSession(request)
+            old_patient = PatientDetail.objects.get(id=pk,
+                                                    lab=session.user_id)
+            old_patient.is_deleted = True
+            old_patient.save()
+            return Response({'id': old_patient.id}, status=status.HTTP_200_OK)
+        except:
+            raise Exception("Patient not found")
 
 
 class PatientAssignTestAPIView(APIView):
     serializer_class = PatientAssignTestSerializer
 
-    def get(self, request, lab_id):
+    def get(self, request,):
         try:
-            test_details = PatientTestDetail.objects.select_related().filter(lab=lab_id)
+            session = SessionUtils.FetchUserSession(request)
+            test_details = PatientTestDetail.objects.select_related().filter(lab=session.user_id)
             data = []
             for details in test_details:
                 patient = details.patient
@@ -90,13 +107,13 @@ class PatientAssignTestAPIView(APIView):
         except:
             return Response("Something went wrong", status=status.HTTP_400_BAD_REQUEST)
 
-    def post(self, request, lab_id):
+    def post(self, request):
         try:
+            session = SessionUtils.FetchUserSession(request)
             data = request.data
-            bill = CreateNewBill(data['total_amount'])
+            bill = LabUtils.CreateNewBill(data['total_amount'])
             patient = PatientDetail.objects.get(id=data['patient_id'])
-            lab = LabDetail.objects.get(id=lab_id)
-
+            lab = LabDetail.objects.get(id=session.user_id)
             all_tests = []
             for test_id in data['test_ids']:
                 test = TestDetail.objects.get(id=test_id)
@@ -114,8 +131,10 @@ class TestFetchAPIView(APIView):
     serializer_class = LabTestSerializer
     permission_classes = (AllowAny,)
 
-    def get(self, request, lab_id):
-        tests = list(TestDetail.objects.filter(lab=lab_id))
+    def get(self, request):
+        session = SessionUtils.FetchUserSession(request)
+        tests = list(TestDetail.objects.filter(
+            lab=session.user_id, is_deleted=False))
         serialized_data = json.loads(serializers.serialize("json", tests))
         data = [{**item['fields'], 'id':item['pk']}
                 for item in serialized_data]
@@ -126,8 +145,10 @@ class PatientFetchAPIView(APIView):
     permission_classes = (AllowAny,)
     serializer_class = LabPatientSerializer
 
-    def get(self, request, lab_id):
-        patient_list = PatientDetail.objects.filter(lab=lab_id)
+    def get(self, request):
+        session = SessionUtils.FetchUserSession(request)
+        patient_list = PatientDetail.objects.filter(
+            lab=session.user_id, is_deleted=False)
         serialized_data = json.loads(
             serializers.serialize("json", patient_list))
         data = [{**item['fields'], 'id':item['pk']}
@@ -135,14 +156,58 @@ class PatientFetchAPIView(APIView):
         return Response(data, status=status.HTTP_200_OK)
 
 
+class FetchPatientByEmailID(APIView):
+
+    def get(self, request):
+        try:
+            session = SessionUtils.FetchUserSession(request)
+            email_id = request.GET.get('email_id')
+            data = []
+            if email_id:
+                patients = PatientDetail.objects.filter(
+                    email_id__startswith=email_id, lab=session.user_id, is_deleted=False)
+                for patient in patients:
+                    temp_data = {
+                        "id": patient.id,
+                        "patient_name": patient.first_name+' '+patient.last_name,
+                        "email_id": patient.email_id
+                    }
+                    data.append(temp_data)
+            return Response(data, status=status.HTTP_200_OK)
+        except:
+            raise Exception("User not found!",
+                            status=status.HTTP_404_NOT_FOUND)
+
+
+class FetchTestsByName(APIView):
+
+    def get(self, request):
+        try:
+            session = SessionUtils.FetchUserSession(request)
+            test_name = request.GET.get('name')
+            data = []
+            if test_name:
+                tests = TestDetail.objects.filter(
+                    name__startswith=test_name, lab=session.user_id, is_deleted=False)
+                for test in tests:
+                    temp_data = {
+                        "id": test.id,
+                        "test_name": test.name,
+                        "sample_needed": test.sample_needed,
+                        "test_type": test.test_type,
+                        "price": test.price
+                    }
+                    data.append(temp_data)
+            return Response(data, status=status.HTTP_200_OK)
+        except:
+            raise Exception("Test not found!",
+                            )
+
+
 class PatientReports(APIView):
 
     def get(self, request):
-        auth_headers = request.headers.get('Authorization')
-        if (not auth_headers):
-            raise Exception("Invalid session!")
-        session_id = auth_headers.split(' ')[1]
-        session = SessionUtils.FetchUserSession(session_id)
+        session = SessionUtils.FetchUserSession(request)
         lab_id = session.user_id
         patients = PatientDetail.objects.filter(lab=lab_id)
         data = []
@@ -152,7 +217,8 @@ class PatientReports(APIView):
             report_data = []
             for bill in bills:
                 bill_ids.append(bill['bill'])
-                report_data = LabUtils.PatientRepostDetails(bill['bill'])
+                temp_bills = LabUtils.PatientRepostDetails(bill['bill'])
+                report_data.extend(temp_bills)
             if len(report_data) == 0:
                 continue
             temp_data = {
@@ -165,54 +231,3 @@ class PatientReports(APIView):
             data.append(temp_data)
 
         return Response(data)
-# class TestUpdateAPIView(APIView):
-#     serializer_class = LabTestSerializer
-
-#     def patch(self, request, test_id):
-#         test = TestDetail.objects.get(id=test_id)
-#         serializer = LabTestSerializer(
-#             test, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data, status=status.HTTP_200_OK)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def delete(self, request, test_id):
-#         test = TestDetail.objects.get(id=test_id)
-#         if (test):
-#             test.delete()
-#             return Response({"data": "Test deleted successfully"}, status=status.HTTP_200_OK)
-#         else:
-#             return Response("Something went wrong", status=status.HTTP_400_BAD_REQUEST)
-
-
-# class TestCreateAPIView(APIView):
-#     serializer_class = LabTestSerializer
-
-#     def post(self, request):
-#         test_serializer = LabTestSerializer(data=request.data)
-#         if test_serializer.is_valid():
-#             test_serializer.save()
-#             return Response(test_serializer.data, status=status.HTTP_201_CREATED)
-#         return Response(test_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# class PatientUpdateAPIView(APIView):
-#     serializer_class = LabPatientUpdateSerializer
-
-#     def patch(self, request, patient_id):
-#         patient = PatientDetail.objects.get(id=patient_id)
-#         serializer = LabPatientUpdateSerializer(
-#             patient, data=request.data, partial=True)
-#         if serializer.is_valid():
-#             serializer.save()
-#             return Response(serializer.data, status=status.HTTP_200_OK)
-#         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-#     def delete(self, request, patient_id):
-#         patient = PatientDetail.objects.get(id=patient_id)
-#         if (patient):
-#             patient.delete()
-#             return Response({"data": "Patient deleted successfully"}, status=status.HTTP_200_OK)
-#         else:
-#             return Response("Something went wrong", status=status.HTTP_400_BAD_REQUEST)

@@ -57,11 +57,7 @@ class FetchUserAPIView(generics.RetrieveAPIView):
 class FetchUserReportsAPIView(APIView):
 
     def get(self, request):
-        auth_headers = request.headers.get('Authorization')
-        if (not auth_headers):
-            raise Exception("Invalid session!")
-        session_id = auth_headers.split(' ')[1]
-        session = SessionUtils.FetchUserSession(session_id)
+        session = SessionUtils.FetchUserSession(request)
         user_id = session.user_id
         user = UserDetail.objects.get(id=user_id)
         patient_with_same_email = LabUtils.FetchAllPatients(user.email_id)
@@ -70,5 +66,4 @@ class FetchUserReportsAPIView(APIView):
             bills = LabUtils.PatientBillDetails(patient.id)
             for bill in bills:
                 data.append(LabUtils.PatientTestDetailsByBillId(bill['bill']))
-
-        return Response(data, status=status.HTTP_200_OK)
+        return Response(list(reversed(data)), status=status.HTTP_200_OK)
