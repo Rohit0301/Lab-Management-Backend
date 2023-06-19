@@ -34,7 +34,7 @@ INSTALLED_APPS = [
     'Lab',
     'User',
     'Session',
-    'corsheaders',
+    # 'corsheaders',
     'rest_framework',
     'django.contrib.admin',
     'django.contrib.auth',

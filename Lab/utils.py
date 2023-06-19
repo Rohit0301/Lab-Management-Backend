@@ -1,8 +1,9 @@
 from .models import PatientDetail, PatientTestDetail, BillDetail
 
 
-def CreateNewBill(total_amount):
-    bill = BillDetail.objects.create(total_amount=total_amount)
+def CreateNewBill(total_amount, invoice):
+    bill = BillDetail.objects.create(
+        total_amount=total_amount, invoice=invoice)
     bill.save()
     return bill
 
@@ -28,6 +29,7 @@ def PatientRepostDetails(bill_id):
             'bill_no': testDetail.bill.id,
             'bill_created_at': testDetail.bill.created_at,
             'test_price': testDetail.test.price,
+            'invoice': testDetail.bill.invoice,
             'test_name': testDetail.test.name,
             'test_sample_needed': testDetail.test.sample_needed
         }

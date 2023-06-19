@@ -53,6 +53,7 @@ class TestDetail(models.Model):
 class BillDetail(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     total_amount = models.IntegerField()
+    invoice = models.TextField(max_length=500, default='')
 
     def __str__(self):
         return f"{self.id}"

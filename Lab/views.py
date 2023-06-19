@@ -111,7 +111,8 @@ class PatientAssignTestAPIView(APIView):
         try:
             session = SessionUtils.FetchUserSession(request)
             data = request.data
-            bill = LabUtils.CreateNewBill(data['total_amount'])
+            bill = LabUtils.CreateNewBill(
+                data['total_amount'], data['invoice'])
             patient = PatientDetail.objects.get(id=data['patient_id'])
             lab = LabDetail.objects.get(id=session.user_id)
             all_tests = []
